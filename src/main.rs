@@ -15,9 +15,11 @@ async fn hello() -> impl Responder {
     USAGE
 
         PUT /v1/token
+        tokenize a string
         
         GET /v1/token/{key}
-        
+        get the tokenized string using the token key
+
         GET /health
             health check
     ",
