@@ -1,5 +1,7 @@
 # Bifrost
 
+[![Build](https://github.com/arjunkomath/Bifrost/actions/workflows/build.yml/badge.svg)](https://github.com/arjunkomath/Bifrost/actions/workflows/build.yml)
+
 This microservice provides a robust solution for encrypting and decrypting data with the AES_256_GCM algorithm, leveraging the powerful capabilities of the Ring crate. Designed as a foundational component, it serves as a reliable building block for integrating encryption and decryption functionalities into various services.
 
 ## Endpoints
