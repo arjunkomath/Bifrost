@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 actix-web = "4.4.1"
 anyhow = "1.0.79"
+dotenv = "0.15.0"
 hex = "0.4.3"
 nanoid = "0.4.0"
 redis = "0.24.0"

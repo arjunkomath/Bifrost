@@ -1,9 +1,11 @@
+use std::env;
 use actix_web::{
     get,
     http::header::{CacheControl, CacheDirective},
     middleware, web, App, HttpResponse, HttpServer, Responder,
 };
 use anyhow::Result;
+use dotenv::dotenv;
 
 mod crypto;
 mod routes;
@@ -35,12 +37,14 @@ async fn health() -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> Result<()> {
-    let port: u16 = std::env::var("PORT")
+    dotenv().ok();
+
+    let port: u16 = env::var("PORT")
         .unwrap_or("8080".to_string())
         .parse()
         .unwrap_or(8080);
 
-    let encryption_key = std::env::var("ENCRYPTION_KEY").expect("ENCRYPTION_KEY is required");
+    let encryption_key = env::var("ENCRYPTION_KEY").expect("ENCRYPTION_KEY is required");
     if encryption_key.len() != 32 {
         panic!("ENCRYPTION_KEY must be 32 bytes long");
     }
