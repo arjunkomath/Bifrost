@@ -2,15 +2,18 @@
 
 [![Build](https://github.com/arjunkomath/Bifrost/actions/workflows/build.yml/badge.svg)](https://github.com/arjunkomath/Bifrost/actions/workflows/build.yml)
 
-This microservice provides a robust solution for encrypting and decrypting data with the AES_256_GCM algorithm, leveraging the powerful capabilities of the Ring crate. Designed as a foundational component, it serves as a reliable building block for integrating encryption and decryption functionalities into various services.
+This microservice provides a robust solution for storing data securely using encryptiong, leveraging the powerful capabilities of the Rust Ring crate.
 
 ## Endpoints
 ```
-PUT /v1/token
-tokenize a string
+POST /v1/token
+get user token for a namespace
 
-GET /v1/token/{key}
-get the tokenized string using the token key
+POST /v1/secret
+create a secret
+
+GET /v1/secret/{id}
+get the secret using the id
 
 GET /health
 health check

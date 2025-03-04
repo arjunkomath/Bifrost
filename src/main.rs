@@ -1,13 +1,17 @@
 use std::env;
+
 use actix_web::{
+    dev::Service,
     get,
     http::header::{CacheControl, CacheDirective},
-    middleware, web, App, HttpResponse, HttpServer, Responder,
+    middleware, web, App, HttpMessage, HttpResponse, HttpServer, Responder,
 };
 use anyhow::Result;
 use dotenv::dotenv;
+use serde_json::json;
 
 mod crypto;
+mod jwt;
 mod routes;
 
 #[get("/")]
@@ -16,11 +20,14 @@ async fn hello() -> impl Responder {
         "
     USAGE
 
-        PUT /v1/token
-        tokenize a string
-        
-        GET /v1/token/{key}
-        get the tokenized string using the token key
+        POST /v1/token
+        get user token for a namespace
+
+        POST /v1/secret
+        create a secret
+
+        GET /v1/secret/{id}
+        get the secret using the id
 
         GET /health
             health check
@@ -49,6 +56,10 @@ async fn main() -> Result<()> {
         panic!("ENCRYPTION_KEY must be 32 bytes long");
     }
 
+    if env::var("JWT_SECRET").is_err() {
+        panic!("JWT_SECRET is required");
+    }
+
     println!("Starting image server on port {}", port);
 
     HttpServer::new(|| {
@@ -59,8 +70,35 @@ async fn main() -> Result<()> {
             .service(health)
             .service(
                 web::scope("/v1")
-                    .service(routes::token::create)
-                    .service(routes::token::get),
+                    .service(routes::auth::create_token)
+                    .service(
+                        web::scope("/secret")
+                            .wrap_fn(|req, srv| {
+                                let auth_header = req.headers().get("Authorization");
+                                let token = auth_header
+                                    .and_then(|h| h.to_str().ok())
+                                    .and_then(|s| s.strip_prefix("Bearer "))
+                                    .and_then(|t| crate::jwt::validate_token(t).ok());
+
+                                match token {
+                                    Some(token_data) => {
+                                        req.extensions_mut().insert(token_data);
+                                        srv.call(req)
+                                    }
+                                    None => Box::pin(async move {
+                                        let error_response = HttpResponse::Unauthorized()
+                                            .content_type("application/json")
+                                            .json(json!({
+                                                "error": "Invalid token",
+                                            }));
+
+                                        Ok(req.into_response(error_response))
+                                    }),
+                                }
+                            })
+                            .service(routes::secret::create)
+                            .service(routes::secret::get),
+                    ),
             )
     })
     .bind(("0.0.0.0", port))?
