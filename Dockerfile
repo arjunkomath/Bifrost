@@ -15,7 +15,7 @@ FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y \
     libssl-dev \
-    sqlite3 \
+    libsqlite3-dev \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
