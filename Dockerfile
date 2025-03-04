@@ -26,9 +26,6 @@ RUN apt-get update && apt-get install -y \
 # Application files
 COPY --from=build /usr/local/cargo/bin/bifrost /usr/local/bin/bifrost
 
-# Copy the templates folder into the container
-COPY templates /templates
-
 EXPOSE 8080
 
 CMD ["bifrost"]
