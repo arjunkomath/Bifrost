@@ -60,6 +60,10 @@ async fn main() -> Result<()> {
         panic!("JWT_SECRET is required");
     }
 
+    if env::var("SQLITE_PATH").is_err() {
+        panic!("SQLITE_PATH is required");
+    }
+
     println!("Starting image server on port {}", port);
 
     HttpServer::new(|| {

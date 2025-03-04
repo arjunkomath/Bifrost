@@ -1,3 +1,5 @@
+use std::env;
+
 use actix_web::{get, post, web, HttpMessage, HttpRequest, Responder, Result};
 use nanoid::nanoid;
 use rusqlite::{Connection, Result as SqliteResult};
@@ -16,7 +18,8 @@ pub struct SecretResponse {
 }
 
 fn get_db_connection(namespace: &str) -> SqliteResult<Connection> {
-    let conn: Connection = Connection::open(format!("sqlite/{}.db", namespace))?;
+    let sqlite_path = env::var("SQLITE_PATH").unwrap_or("sqlite".into());
+    let conn: Connection = Connection::open(format!("{}/{}.db", sqlite_path, namespace))?;
 
     // Create table if it doesn't exist
     conn.execute(
