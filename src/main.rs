@@ -4,15 +4,18 @@ use actix_web::{
     dev::Service,
     get,
     http::header::{CacheControl, CacheDirective},
-    middleware, web, App, HttpMessage, HttpResponse, HttpServer, Responder,
+    middleware::{self, Logger},
+    web, App, HttpMessage, HttpResponse, HttpServer, Responder,
 };
 use anyhow::Result;
 use dotenv::dotenv;
+use env_logger::Env;
 use serde_json::json;
+use utils::jwt;
 
 mod crypto;
-mod jwt;
 mod routes;
+mod utils;
 
 #[get("/")]
 async fn hello() -> impl Responder {
@@ -45,6 +48,7 @@ async fn health() -> impl Responder {
 #[actix_web::main]
 async fn main() -> Result<()> {
     dotenv().ok();
+    env_logger::init_from_env(Env::default().default_filter_or("info"));
 
     let port: u16 = env::var("PORT")
         .unwrap_or("8080".to_string())
@@ -64,11 +68,15 @@ async fn main() -> Result<()> {
         panic!("SQLITE_PATH is required");
     }
 
-    println!("Starting image server on port {}", port);
+    println!("Starting Bifrost on port {}", port);
 
     HttpServer::new(|| {
         App::new()
             .wrap(middleware::Logger::default())
+            .wrap(
+                Logger::new("%a %t \"%r\" %s %b \"%{Referer}i\" \"%{User-Agent}i\" %T")
+                    .exclude("/health"),
+            )
             .wrap(middleware::DefaultHeaders::new().add(("X-Version", env!("CARGO_PKG_VERSION"))))
             .service(hello)
             .service(health)
@@ -82,7 +90,7 @@ async fn main() -> Result<()> {
                                 let token = auth_header
                                     .and_then(|h| h.to_str().ok())
                                     .and_then(|s| s.strip_prefix("Bearer "))
-                                    .and_then(|t| crate::jwt::validate_token(t).ok());
+                                    .and_then(|t| jwt::validate_token(t).ok());
 
                                 match token {
                                     Some(token_data) => {

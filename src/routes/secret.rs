@@ -1,5 +1,6 @@
 use std::env;
 
+use crate::utils::jwt;
 use actix_web::{get, post, web, HttpMessage, HttpRequest, Responder, Result};
 use nanoid::nanoid;
 use rusqlite::{Connection, Result as SqliteResult};
@@ -57,7 +58,7 @@ pub async fn create(
 
     let extensions = req.extensions();
     let token = extensions
-        .get::<crate::jwt::Claims>()
+        .get::<jwt::Claims>()
         .ok_or_else(|| actix_web::error::ErrorUnauthorized("No token found"))?;
 
     let conn = get_db_connection(&token.namespace).map_err(|_| {
@@ -90,7 +91,7 @@ pub async fn get(req: HttpRequest, path: web::Path<String>) -> Result<impl Respo
 
     let extensions = req.extensions();
     let token = extensions
-        .get::<crate::jwt::Claims>()
+        .get::<jwt::Claims>()
         .ok_or_else(|| actix_web::error::ErrorUnauthorized("No token found"))?;
 
     let conn = get_db_connection(&token.namespace).map_err(|_| {
