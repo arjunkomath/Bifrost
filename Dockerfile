@@ -11,19 +11,15 @@ RUN cargo install --path .
 # ---------------------------------------------------
 # 2 - Deploy Stage
 # ---------------------------------------------------
-FROM debian:bookworm-slim
+FROM alpine:latest
 
-RUN apt-get update && apt-get install -y \
-    libssl-dev \
-    libsqlite3-dev \
+# Install required dependencies
+RUN apk add --no-cache \
+    openssl \
+    sqlite-dev \
     ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    libc6-compat
 
-# Set the architecture argument (arm64, i.e. aarch64 as default)
-# For amd64, i.e. x86_64, you can append a flag when invoking the build `... --build-arg "ARCH=x86_64"`
-# ARG ARCH=aarch64
-
-# Application files
 COPY --from=build /usr/local/cargo/bin/bifrost /usr/local/bin/bifrost
 
 EXPOSE 8080
