@@ -6,14 +6,11 @@ This microservice provides a robust solution for storing data securely using enc
 
 ## Endpoints
 ```
-POST /v1/token
-get user token for a namespace
-
-POST /v1/secret
+POST /v1/secret/{key}
 create a secret
 
-GET /v1/secret/{id}
-get the secret using the id
+GET /v1/secret/{key}
+get secret using the key
 
 GET /health
 health check
