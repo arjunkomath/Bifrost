@@ -5,13 +5,12 @@ use actix_web::{
     get,
     http::header::{CacheControl, CacheDirective},
     middleware::{self, Logger},
-    web, App, HttpMessage, HttpResponse, HttpServer, Responder,
+    web, App, HttpResponse, HttpServer, Responder,
 };
 use anyhow::Result;
 use dotenv::dotenv;
 use env_logger::Env;
 use serde_json::json;
-use utils::jwt;
 
 mod crypto;
 mod routes;
@@ -23,14 +22,11 @@ async fn hello() -> impl Responder {
         "
     USAGE
 
-        POST /v1/token
-        get user token for a namespace
-
-        POST /v1/secret
+        POST /v1/secret/{key}
         create a secret
 
-        GET /v1/secret/{id}
-        get the secret using the id
+        GET /v1/secret/{key}
+        get secret using the key
 
         GET /health
             health check
@@ -60,8 +56,8 @@ async fn main() -> Result<()> {
         panic!("ENCRYPTION_KEY must be 32 bytes long");
     }
 
-    if env::var("JWT_SECRET").is_err() {
-        panic!("JWT_SECRET is required");
+    if env::var("API_KEY").is_err() {
+        panic!("API_KEY is required");
     }
 
     if env::var("SQLITE_PATH").is_err() {
@@ -81,36 +77,27 @@ async fn main() -> Result<()> {
             .service(hello)
             .service(health)
             .service(
-                web::scope("/v1")
-                    .service(routes::auth::create_token)
-                    .service(
-                        web::scope("/secret")
-                            .wrap_fn(|req, srv| {
-                                let auth_header = req.headers().get("Authorization");
-                                let token = auth_header
-                                    .and_then(|h| h.to_str().ok())
-                                    .and_then(|s| s.strip_prefix("Bearer "))
-                                    .and_then(|t| jwt::validate_token(t).ok());
+                web::scope("/v1").service(
+                    web::scope("/secret")
+                        .wrap_fn(|req, srv| {
+                            let api_key = req.headers().get("x-api-key").unwrap();
 
-                                match token {
-                                    Some(token_data) => {
-                                        req.extensions_mut().insert(token_data);
-                                        srv.call(req)
-                                    }
-                                    None => Box::pin(async move {
-                                        let error_response = HttpResponse::Unauthorized()
-                                            .content_type("application/json")
-                                            .json(json!({
-                                                "error": "Invalid token",
-                                            }));
+                            match api_key.to_str().unwrap() == env::var("API_KEY").unwrap() {
+                                true => srv.call(req),
+                                false => Box::pin(async move {
+                                    let error_response = HttpResponse::Unauthorized()
+                                        .content_type("application/json")
+                                        .json(json!({
+                                            "error": "Invalid API key",
+                                        }));
 
-                                        Ok(req.into_response(error_response))
-                                    }),
-                                }
-                            })
-                            .service(routes::secret::create)
-                            .service(routes::secret::get),
-                    ),
+                                    Ok(req.into_response(error_response))
+                                }),
+                            }
+                        })
+                        .service(routes::secret::create)
+                        .service(routes::secret::get),
+                ),
             )
     })
     .bind(("0.0.0.0", port))?
