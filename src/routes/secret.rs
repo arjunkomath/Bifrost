@@ -38,7 +38,7 @@ pub async fn create(
     let created_at = chrono::Utc::now().to_rfc3339();
 
     conn.execute(
-        "INSERT INTO secrets (key, data, created_at) VALUES (?1, ?2, ?3)",
+        "INSERT OR REPLACE INTO secrets (key, data, created_at) VALUES (?1, ?2, ?3)",
         [&key, &combined_data, &created_at],
     )
     .map_err(|err| {
