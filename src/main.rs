@@ -26,7 +26,10 @@ async fn hello() -> impl Responder {
         create a secret
 
         GET /v1/secret/{key}
-        get secret using the key
+        get secret
+
+        DELETE /v1/secret/{key}
+        delete secret
 
         GET /health
             health check
@@ -95,7 +98,8 @@ async fn main() -> Result<()> {
                                 }),
                             }
                         })
-                        .service(routes::secret::create)
+                        .service(routes::secret::upsert)
+                        .service(routes::secret::delete)
                         .service(routes::secret::get),
                 ),
             )

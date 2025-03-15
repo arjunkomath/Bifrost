@@ -12,6 +12,9 @@ create a secret
 GET /v1/secret/{key}
 get secret using the key
 
+DELETE /v1/secret/{key}
+delete secret
+
 GET /health
 health check
 ```

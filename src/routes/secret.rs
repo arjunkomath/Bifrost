@@ -1,4 +1,4 @@
-use actix_web::{get, post, web, Responder, Result};
+use actix_web::{delete, get, post, web, Responder, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::{crypto, utils::db::get_db_connection};
@@ -19,7 +19,7 @@ pub struct SecretResponse {
 }
 
 #[post("/{key}")]
-pub async fn create(
+pub async fn upsert(
     payload: web::Json<CreateSecretPayload>,
     key: web::Path<String>,
     query: web::Query<NamespaceQuery>,
@@ -78,4 +78,21 @@ pub async fn get(
     })?;
 
     Ok(web::Json(TokenDataResponse { data: result }))
+}
+
+#[delete("/{key}")]
+pub async fn delete(
+    key: web::Path<String>,
+    query: web::Query<NamespaceQuery>,
+) -> Result<impl Responder> {
+    let key = key.into_inner();
+
+    let conn = get_db_connection(&query.namespace).map_err(|_| {
+        actix_web::error::ErrorInternalServerError("Internal Error: Failed to connect to database")
+    })?;
+
+    conn.execute("DELETE FROM secrets WHERE key = ?1", [&key])
+        .map_err(|_| actix_web::error::ErrorBadRequest("Invalid secret key"))?;
+
+    Ok(web::Json(SecretResponse { key: key.clone() }))
 }
