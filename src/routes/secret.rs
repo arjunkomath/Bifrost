@@ -1,5 +1,6 @@
 use actix_web::{delete, get, post, web, Responder, Result};
 use serde::{Deserialize, Serialize};
+use tracing::info;
 
 use crate::{crypto, utils::db::get_db_connection};
 
@@ -25,6 +26,8 @@ pub async fn upsert(
     query: web::Query<NamespaceQuery>,
 ) -> Result<impl Responder> {
     let key = key.into_inner();
+
+    info!("Upserting secret for key: {}", key);
 
     let (encrypted_data, tag) = crypto::encrypt(payload.data.clone()).map_err(|_| {
         actix_web::error::ErrorInternalServerError("Internal Error: Failed to tokenize data")
@@ -63,6 +66,8 @@ pub async fn get(
 ) -> Result<impl Responder> {
     let key = key.into_inner();
 
+    info!("Getting secret for key: {}", key);
+
     let conn = get_db_connection(&query.namespace).map_err(|_| {
         actix_web::error::ErrorInternalServerError("Internal Error: Failed to connect to database")
     })?;
@@ -86,6 +91,8 @@ pub async fn delete(
     query: web::Query<NamespaceQuery>,
 ) -> Result<impl Responder> {
     let key = key.into_inner();
+
+    info!("Deleting secret for key: {}", key);
 
     let conn = get_db_connection(&query.namespace).map_err(|_| {
         actix_web::error::ErrorInternalServerError("Internal Error: Failed to connect to database")

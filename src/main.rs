@@ -4,13 +4,13 @@ use actix_web::{
     dev::Service,
     get,
     http::header::{CacheControl, CacheDirective},
-    middleware::{self, Logger},
-    web, App, HttpResponse, HttpServer, Responder,
+    middleware, web, App, HttpResponse, HttpServer, Responder,
 };
 use anyhow::Result;
 use dotenv::dotenv;
-use env_logger::Env;
 use serde_json::json;
+use tracing::info;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod crypto;
 mod routes;
@@ -47,7 +47,14 @@ async fn health() -> impl Responder {
 #[actix_web::main]
 async fn main() -> Result<()> {
     dotenv().ok();
-    env_logger::init_from_env(Env::default().default_filter_or("info"));
+
+    // Initialize tracing
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .init();
 
     let port: u16 = env::var("PORT")
         .unwrap_or("8080".to_string())
@@ -67,15 +74,11 @@ async fn main() -> Result<()> {
         panic!("SQLITE_PATH is required");
     }
 
-    println!("Starting Bifrost on port {}", port);
+    info!("Starting Bifrost on port {}", port);
 
     HttpServer::new(|| {
         App::new()
-            .wrap(middleware::Logger::default())
-            .wrap(
-                Logger::new("%a %t \"%r\" %s %b \"%{Referer}i\" \"%{User-Agent}i\" %T")
-                    .exclude("/health"),
-            )
+            .wrap(tracing_actix_web::TracingLogger::default())
             .wrap(middleware::DefaultHeaders::new().add(("X-Version", env!("CARGO_PKG_VERSION"))))
             .service(hello)
             .service(health)

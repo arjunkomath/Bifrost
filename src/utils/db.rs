@@ -1,8 +1,11 @@
 use std::{env, path::Path};
 
 use rusqlite::{Connection, Result as SqliteResult};
+use tracing::debug;
 
 pub fn get_db_connection(namespace: &str) -> SqliteResult<Connection> {
+    debug!("Getting DB connection for namespace: {}", namespace);
+
     let sqlite_path = env::var("SQLITE_PATH").unwrap_or("sqlite".into());
     let db_path = format!("{}/{}.db", sqlite_path, namespace);
 
