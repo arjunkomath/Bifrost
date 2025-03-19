@@ -66,12 +66,12 @@ async fn main() -> Result<()> {
         panic!("ENCRYPTION_KEY must be 32 bytes long");
     }
 
-    if env::var("API_KEY").is_err() {
-        panic!("API_KEY is required");
-    }
+    let required_env_vars = vec!["API_KEY", "TURSO_ORG", "TURSO_GROUP_TOKEN"];
 
-    if env::var("SQLITE_PATH").is_err() {
-        panic!("SQLITE_PATH is required");
+    for var in required_env_vars {
+        if env::var(var).is_err() {
+            panic!("{} is required", var);
+        }
     }
 
     info!("Starting Bifrost on port {}", port);
