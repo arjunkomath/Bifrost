@@ -107,7 +107,7 @@ async fn main() -> Result<()> {
                 ),
             )
     })
-    .bind(("0.0.0.0", port))?
+    .bind(("::", port))?
     .run()
     .await?;
 
