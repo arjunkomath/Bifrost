@@ -66,7 +66,7 @@ async fn main() -> Result<()> {
         panic!("ENCRYPTION_KEY must be 32 bytes long");
     }
 
-    let required_env_vars = vec!["API_KEY", "TURSO_ORG", "TURSO_GROUP_TOKEN"];
+    let required_env_vars = vec!["API_KEY", "TURSO_ORG", "TURSO_GROUP_TOKEN", "TURSO_REGION"];
 
     for var in required_env_vars {
         if env::var(var).is_err() {
