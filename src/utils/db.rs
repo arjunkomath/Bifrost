@@ -9,7 +9,8 @@ pub async fn get_db_connection(namespace: &str) -> Result<Connection> {
 
     let org = env::var("TURSO_ORG")?;
     let token = env::var("TURSO_GROUP_TOKEN")?;
-    let url = format!("https://{}-{}.turso.io", namespace, org);
+    let region = env::var("TURSO_REGION")?;
+    let url = format!("https://{}-{}.{}.turso.io", namespace, org, region);
     let db = Builder::new_remote(url, token).build().await?;
 
     let conn = db.connect()?;
