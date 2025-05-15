@@ -9,12 +9,18 @@ use actix_web::{
 use anyhow::Result;
 use dotenv::dotenv;
 use serde_json::json;
-use tracing::info;
+use sqlx::{Pool, Postgres};
+use tracing::{debug, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use utils::db::setup_db;
 
 mod crypto;
 mod routes;
 mod utils;
+
+pub struct AppState {
+    db: Pool<Postgres>,
+}
 
 #[get("/")]
 async fn hello() -> impl Responder {
@@ -66,7 +72,7 @@ async fn main() -> Result<()> {
         panic!("ENCRYPTION_KEY must be 32 bytes long");
     }
 
-    let required_env_vars = vec!["API_KEY", "TURSO_ORG", "TURSO_GROUP_TOKEN", "TURSO_REGION"];
+    let required_env_vars = vec!["API_KEY", "DATABASE_URL"];
 
     for var in required_env_vars {
         if env::var(var).is_err() {
@@ -74,10 +80,15 @@ async fn main() -> Result<()> {
         }
     }
 
+    debug!("Setting up database");
+    let db = setup_db().await?;
+    debug!("Database setup complete");
+
     info!("Starting Bifrost on port {}", port);
 
-    HttpServer::new(|| {
+    HttpServer::new(move || {
         App::new()
+            .app_data(web::Data::new(AppState { db: db.clone() }))
             .wrap(tracing_actix_web::TracingLogger::default())
             .wrap(middleware::DefaultHeaders::new().add(("X-Version", env!("CARGO_PKG_VERSION"))))
             .service(hello)

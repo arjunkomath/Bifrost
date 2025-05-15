@@ -1,29 +1,24 @@
 use std::env;
 
 use anyhow::Result;
-use libsql::{Builder, Connection};
-use tracing::debug;
+use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 
-pub async fn get_db_connection(namespace: &str) -> Result<Connection> {
-    debug!("Getting DB connection for namespace: {}", namespace);
+pub async fn setup_db() -> Result<Pool<Postgres>> {
+    let database_url = env::var("DATABASE_URL")?;
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect(&database_url)
+        .await?;
 
-    let org = env::var("TURSO_ORG")?;
-    let token = env::var("TURSO_GROUP_TOKEN")?;
-    let region = env::var("TURSO_REGION")?;
-    let url = format!("https://{}-{}.{}.turso.io", namespace, org, region);
-    let db = Builder::new_remote(url, token).build().await?;
-
-    let conn = db.connect()?;
-
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS secrets (
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS vault (
             key TEXT PRIMARY KEY,
             data TEXT NOT NULL,
             created_at TEXT NOT NULL
         )",
-        (),
     )
+    .execute(&pool)
     .await?;
 
-    Ok(conn)
+    Ok(pool)
 }

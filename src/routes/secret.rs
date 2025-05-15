@@ -1,17 +1,13 @@
 use actix_web::{delete, get, post, web, Responder, Result};
 use serde::{Deserialize, Serialize};
+use sqlx::Row;
 use tracing::info;
 
-use crate::{crypto, utils::db::get_db_connection};
+use crate::{crypto, AppState};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct CreateSecretPayload {
     pub data: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct NamespaceQuery {
-    pub namespace: String,
 }
 
 #[derive(Serialize)]
@@ -23,33 +19,24 @@ pub struct SecretResponse {
 pub async fn upsert(
     payload: web::Json<CreateSecretPayload>,
     key: web::Path<String>,
-    query: web::Query<NamespaceQuery>,
+    state: web::Data<AppState>,
 ) -> Result<impl Responder> {
     let key = key.into_inner();
 
     info!("Upserting secret for key: {}", key);
 
     let (encrypted_data, tag) = crypto::encrypt(payload.data.clone()).map_err(|_| {
-        actix_web::error::ErrorInternalServerError("Internal Error: Failed to tokenize data")
+        actix_web::error::ErrorInternalServerError("Internal Error: Failed to save secret")
     })?;
 
-    let conn = get_db_connection(&query.namespace).await.map_err(|_| {
-        actix_web::error::ErrorInternalServerError("Internal Error: Failed to connect to database")
-    })?;
-
-    let combined_data = [encrypted_data, tag].join("");
+    let combined_data = format!("{encrypted_data}:{tag}");
     let created_at = chrono::Utc::now().to_rfc3339();
 
-    let mut stmt = conn
-        .prepare("INSERT OR REPLACE INTO secrets (key, data, created_at) VALUES (?1, ?2, ?3)")
-        .await
-        .map_err(|_| {
-            actix_web::error::ErrorInternalServerError(
-                "Internal Error: Failed to prepare statement",
-            )
-        })?;
-
-    stmt.execute([key.as_str(), combined_data.as_str(), created_at.as_str()])
+    sqlx::query("INSERT INTO vault (key, data, created_at) VALUES ($1, $2, $3) ON CONFLICT (key) DO UPDATE SET data = EXCLUDED.data, created_at = EXCLUDED.created_at")
+        .bind(&key)
+        .bind(&combined_data)
+        .bind(&created_at)
+        .execute(&state.db)
         .await
         .map_err(|_| {
             actix_web::error::ErrorInternalServerError(
@@ -57,7 +44,7 @@ pub async fn upsert(
             )
         })?;
 
-    Ok(web::Json(SecretResponse { key: key.clone() }))
+    Ok(web::Json(SecretResponse { key }))
 }
 
 #[derive(Serialize)]
@@ -66,45 +53,25 @@ pub struct TokenDataResponse {
 }
 
 #[get("/{key}")]
-pub async fn get(
-    key: web::Path<String>,
-    query: web::Query<NamespaceQuery>,
-) -> Result<impl Responder> {
+pub async fn get(key: web::Path<String>, state: web::Data<AppState>) -> Result<impl Responder> {
     let key = key.into_inner();
 
     info!("Getting secret for key: {}", key);
 
-    let conn = get_db_connection(&query.namespace).await.map_err(|_| {
-        actix_web::error::ErrorInternalServerError("Internal Error: Failed to connect to database")
-    })?;
-
-    let mut stmt = conn
-        .prepare("SELECT data FROM secrets WHERE key = ?1")
+    let row = sqlx::query("SELECT data FROM vault WHERE key = $1")
+        .bind(&key)
+        .fetch_optional(&state.db)
         .await
         .map_err(|_| {
-            actix_web::error::ErrorInternalServerError(
-                "Internal Error: Failed to prepare statement",
-            )
+            actix_web::error::ErrorInternalServerError("Internal Error: DB query failed")
         })?;
 
-    let mut results = stmt
-        .query([key.as_str()])
-        .await
-        .map_err(|_| actix_web::error::ErrorBadRequest("Invalid secret key"))?;
-
-    let result = results
-        .next()
-        .await
-        .map_err(|_| {
-            actix_web::error::ErrorInternalServerError("Internal Error: Failed to get secret")
-        })?
-        .ok_or_else(|| actix_web::error::ErrorBadRequest("Invalid secret key"))?;
-
-    let encrypted_data = result.get_str(0).map_err(|_| {
+    let row = row.ok_or_else(|| actix_web::error::ErrorNotFound("Secret not found"))?;
+    let encrypted_data: String = row.try_get("data").map_err(|_| {
         actix_web::error::ErrorInternalServerError("Internal Error: Failed to get secret")
     })?;
 
-    let result = crypto::decrypt(encrypted_data.to_string()).map_err(|_| {
+    let result = crypto::decrypt(encrypted_data).map_err(|_| {
         actix_web::error::ErrorInternalServerError("Internal Error: Failed to get secret")
     })?;
 
@@ -112,30 +79,24 @@ pub async fn get(
 }
 
 #[delete("/{key}")]
-pub async fn delete(
-    key: web::Path<String>,
-    query: web::Query<NamespaceQuery>,
-) -> Result<impl Responder> {
+pub async fn delete(key: web::Path<String>, state: web::Data<AppState>) -> Result<impl Responder> {
     let key = key.into_inner();
 
     info!("Deleting secret for key: {}", key);
 
-    let conn = get_db_connection(&query.namespace).await.map_err(|_| {
-        actix_web::error::ErrorInternalServerError("Internal Error: Failed to connect to database")
-    })?;
-
-    let mut stmt = conn
-        .prepare("DELETE FROM secrets WHERE key = ?1")
+    let result = sqlx::query("DELETE FROM vault WHERE key = $1")
+        .bind(&key)
+        .execute(&state.db)
         .await
         .map_err(|_| {
             actix_web::error::ErrorInternalServerError(
-                "Internal Error: Failed to prepare statement",
+                "Internal Error: Failed to execute statement",
             )
         })?;
 
-    stmt.execute([key.as_str()]).await.map_err(|_| {
-        actix_web::error::ErrorInternalServerError("Internal Error: Failed to execute statement")
-    })?;
+    if result.rows_affected() == 0 {
+        return Err(actix_web::error::ErrorNotFound("Secret not found"));
+    }
 
-    Ok(web::Json(SecretResponse { key: key.clone() }))
+    Ok(web::Json(SecretResponse { key }))
 }
