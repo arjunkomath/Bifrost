@@ -29,7 +29,7 @@ pub async fn upsert(
         actix_web::error::ErrorInternalServerError("Internal Error: Failed to save secret")
     })?;
 
-    let combined_data = format!("{encrypted_data}:{tag}");
+    let combined_data = format!("{encrypted_data}{tag}");
     let created_at = chrono::Utc::now().to_rfc3339();
 
     sqlx::query("INSERT INTO vault (key, data, created_at) VALUES ($1, $2, $3) ON CONFLICT (key) DO UPDATE SET data = EXCLUDED.data, created_at = EXCLUDED.created_at")
