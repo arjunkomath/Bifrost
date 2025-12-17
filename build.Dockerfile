@@ -1,7 +1,7 @@
 # ---------------------------------------------------
 # 1 - Build Stage
 # ---------------------------------------------------
-FROM rust:1.85 as build
+FROM rust:1.88 AS build
 
 WORKDIR /usr/src/bifrost
 COPY . .

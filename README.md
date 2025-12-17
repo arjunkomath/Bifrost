@@ -64,6 +64,16 @@ docker run -p 8080:8080 \
   bifrost
 ```
 
+### Docker Compose (Local Development)
+
+Run Bifrost with PostgreSQL locally:
+
+```bash
+docker compose up
+```
+
+This starts both Bifrost and a PostgreSQL instance. Set `API_KEY` and `ENCRYPTION_KEY` in your `.env` file before running.
+
 ## Contribution
 
 Contributions are welcome! Feel free to submit issues, feature requests, or pull requests to enhance the functionality and usability of this microservice.
